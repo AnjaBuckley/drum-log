@@ -92,7 +92,7 @@ export default function LogSession() {
 
             <div>
               <Label>Focus Area *</Label>
-              <Select value={focusArea} onValueChange={setFocusArea} required>
+              <Select value={focusArea} onValueChange={setFocusArea}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select focus area" />
                 </SelectTrigger>
@@ -102,6 +102,7 @@ export default function LogSession() {
                   ))}
                 </SelectContent>
               </Select>
+              {showErrors && !focusArea && <p className="text-destructive text-sm mt-1">Focus area is required</p>}
             </div>
 
             <div>
