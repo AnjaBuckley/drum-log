@@ -14,6 +14,7 @@ DrumLog is a web app built for drummers who want to take their practice seriousl
 - **📝 Session Logging** — Record duration, focus area, BPM range, feel rating (1–5 stars), tags, exercise name, notes, and an optional audio URL
 - **📊 Dashboard** — At-a-glance stats: monthly practice time, weekly session count, average BPM gain, and a 30-day practice chart
 - **📋 Session History** — Browse, search, filter, edit, and delete past sessions
+- **🤖 AI Schedule Generator** — Answer questions about your skill level, available time, genre preferences, and goals to get a personalized weekly practice plan powered by AI
 - **🎨 Dark Theme** — A clean, drummer-friendly UI with a warm orange accent on a deep dark background
 
 ## 🛠 Tech Stack
