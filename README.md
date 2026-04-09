@@ -70,7 +70,7 @@ src/
 ├── hooks/            # Custom hooks (useAuth, use-mobile)
 ├── integrations/     # Supabase client & types (auto-generated)
 ├── lib/              # Constants, utilities
-└── pages/            # Route pages (Auth, Dashboard, LogSession, Sessions)
+└── pages/            # Route pages (Auth, Dashboard, LogSession, Sessions, Calendar, ScheduleGenerator)
 ```
 
 ## 📄 License
