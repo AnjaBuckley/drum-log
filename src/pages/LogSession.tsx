@@ -80,11 +80,13 @@ export default function LogSession() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Date *</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                {showErrors && !date && <p className="text-destructive text-sm mt-1">Date is required</p>}
               </div>
               <div>
                 <Label>Duration (minutes) *</Label>
-                <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} required placeholder="45" />
+                <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="45" />
+                {showErrors && !duration && <p className="text-destructive text-sm mt-1">Duration is required</p>}
               </div>
             </div>
 
