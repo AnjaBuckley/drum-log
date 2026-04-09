@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, PlusCircle, ListMusic, LogOut, Menu, Drum, X } from "lucide-react";
+import { LayoutDashboard, PlusCircle, ListMusic, LogOut, Menu, Drum, X, CalendarClock } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -10,6 +10,7 @@ const navItems = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/log", label: "Log Session", icon: PlusCircle },
   { to: "/sessions", label: "My Sessions", icon: ListMusic },
+  { to: "/schedule", label: "Schedule AI", icon: CalendarClock },
 ];
 
 export default function AppLayout({ children }: { children: ReactNode }) {
