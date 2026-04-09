@@ -14,7 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      practice_sessions: {
+        Row: {
+          audio_url: string | null
+          bpm_end: number | null
+          bpm_start: number | null
+          created_at: string
+          date: string
+          duration_minutes: number
+          exercise_name: string | null
+          feel_rating: number | null
+          focus_area: string
+          id: string
+          notes: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          bpm_end?: number | null
+          bpm_start?: number | null
+          created_at?: string
+          date: string
+          duration_minutes: number
+          exercise_name?: string | null
+          feel_rating?: number | null
+          focus_area: string
+          id?: string
+          notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          bpm_end?: number | null
+          bpm_start?: number | null
+          created_at?: string
+          date?: string
+          duration_minutes?: number
+          exercise_name?: string | null
+          feel_rating?: number | null
+          focus_area?: string
+          id?: string
+          notes?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
