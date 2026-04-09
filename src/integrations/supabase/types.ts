@@ -65,6 +65,62 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_practices: {
+        Row: {
+          activity: string
+          bpm_range: string | null
+          completed: boolean
+          created_at: string
+          date: string
+          day_of_week: string
+          duration_minutes: number
+          focus_area: string
+          id: string
+          logged_session_id: string | null
+          schedule_name: string
+          tips: string | null
+          user_id: string
+        }
+        Insert: {
+          activity: string
+          bpm_range?: string | null
+          completed?: boolean
+          created_at?: string
+          date: string
+          day_of_week: string
+          duration_minutes: number
+          focus_area: string
+          id?: string
+          logged_session_id?: string | null
+          schedule_name: string
+          tips?: string | null
+          user_id: string
+        }
+        Update: {
+          activity?: string
+          bpm_range?: string | null
+          completed?: boolean
+          created_at?: string
+          date?: string
+          day_of_week?: string
+          duration_minutes?: number
+          focus_area?: string
+          id?: string
+          logged_session_id?: string | null
+          schedule_name?: string
+          tips?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_practices_logged_session_id_fkey"
+            columns: ["logged_session_id"]
+            isOneToOne: false
+            referencedRelation: "practice_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
