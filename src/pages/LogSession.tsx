@@ -18,6 +18,7 @@ export default function LogSession() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(today);
@@ -31,8 +32,14 @@ export default function LogSession() {
   const [notes, setNotes] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
 
+  const missingFields = !date || !duration || !focusArea;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (missingFields) {
+      setShowErrors(true);
+      return;
+    }
     if (!user) return;
     setLoading(true);
 
@@ -73,17 +80,19 @@ export default function LogSession() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Date *</Label>
-                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+                <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                {showErrors && !date && <p className="text-destructive text-sm mt-1">Date is required</p>}
               </div>
               <div>
                 <Label>Duration (minutes) *</Label>
-                <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} required placeholder="45" />
+                <Input type="number" min={1} value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="45" />
+                {showErrors && !duration && <p className="text-destructive text-sm mt-1">Duration is required</p>}
               </div>
             </div>
 
             <div>
               <Label>Focus Area *</Label>
-              <Select value={focusArea} onValueChange={setFocusArea} required>
+              <Select value={focusArea} onValueChange={setFocusArea}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select focus area" />
                 </SelectTrigger>
@@ -93,6 +102,7 @@ export default function LogSession() {
                   ))}
                 </SelectContent>
               </Select>
+              {showErrors && !focusArea && <p className="text-destructive text-sm mt-1">Focus area is required</p>}
             </div>
 
             <div>
@@ -140,7 +150,10 @@ export default function LogSession() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !focusArea || !duration || !date}>
+            {showErrors && missingFields && (
+              <p className="text-destructive text-sm text-center">Please fill in all mandatory fields marked with *</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Saving..." : "Log Session"}
             </Button>
           </form>
