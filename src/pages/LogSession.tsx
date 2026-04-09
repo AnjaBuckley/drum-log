@@ -32,8 +32,14 @@ export default function LogSession() {
   const [notes, setNotes] = useState("");
   const [audioUrl, setAudioUrl] = useState("");
 
+  const missingFields = !date || !duration || !focusArea;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (missingFields) {
+      setShowErrors(true);
+      return;
+    }
     if (!user) return;
     setLoading(true);
 
