@@ -10,6 +10,7 @@ import Dashboard from "@/pages/Dashboard";
 import LogSession from "@/pages/LogSession";
 import Sessions from "@/pages/Sessions";
 import ScheduleGenerator from "@/pages/ScheduleGenerator";
+import Calendar from "@/pages/Calendar";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/log" element={<ProtectedRoute><LogSession /></ProtectedRoute>} />
             <Route path="/sessions" element={<ProtectedRoute><Sessions /></ProtectedRoute>} />
             <Route path="/schedule" element={<ProtectedRoute><ScheduleGenerator /></ProtectedRoute>} />
+            <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

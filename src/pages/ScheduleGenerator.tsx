@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,10 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, ArrowRight, ArrowLeft, Clock, Target, Music, Zap, Calendar, CheckCircle2 } from "lucide-react";
+import { Loader2, Sparkles, ArrowRight, ArrowLeft, Clock, Target, Music, Zap, Calendar, CheckCircle2, Download, CalendarPlus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { addDays, nextMonday, format } from "date-fns";
 
 interface Answers {
   skillLevel: string;
@@ -54,22 +57,23 @@ const STEPS = [
 const GENRES = ["Rock", "Jazz", "Metal", "Funk", "Pop", "Latin", "Blues", "Gospel", "Hip-Hop", "Progressive"];
 const WEAKNESSES = ["Speed", "Timing", "Independence", "Dynamics", "Fills", "Odd Time Signatures", "Double Bass", "Ghost Notes", "Musicality", "Reading"];
 
+const DAY_MAP: Record<string, number> = {
+  Monday: 0, Tuesday: 1, Wednesday: 2, Thursday: 3, Friday: 4, Saturday: 5, Sunday: 6,
+};
+
+function parseDurationMinutes(dur: string): number {
+  const match = dur.match(/(\d+)/);
+  return match ? parseInt(match[1]) : 30;
+}
+
 export default function ScheduleGenerator() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [answers, setAnswers] = useState<Answers>({
-    skillLevel: "",
-    experience: "",
-    practiceTime: "",
-    daysPerWeek: "",
-    genres: "",
-    goals: "",
-    weaknesses: "",
-    equipment: "",
-    currentExercises: "",
+    skillLevel: "", experience: "", practiceTime: "", daysPerWeek: "",
+    genres: "", goals: "", weaknesses: "", equipment: "", currentExercises: "",
   });
-
   const [selectedGenres, setSelectedGenres] = useState<string[]>([]);
   const [selectedWeaknesses, setSelectedWeaknesses] = useState<string[]>([]);
 
@@ -91,9 +95,7 @@ export default function ScheduleGenerator() {
   const generate = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-schedule", {
-        body: { answers },
-      });
+      const { data, error } = await supabase.functions.invoke("generate-schedule", { body: { answers } });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setSchedule(data.schedule);
@@ -198,14 +200,7 @@ export default function ScheduleGenerator() {
                 <Label>Musical Genres (select all that apply)</Label>
                 <div className="flex flex-wrap gap-2">
                   {GENRES.map((g) => (
-                    <Badge
-                      key={g}
-                      variant={selectedGenres.includes(g) ? "default" : "outline"}
-                      className="cursor-pointer transition-colors"
-                      onClick={() => toggleChip(g, selectedGenres, setSelectedGenres, "genres")}
-                    >
-                      {g}
-                    </Badge>
+                    <Badge key={g} variant={selectedGenres.includes(g) ? "default" : "outline"} className="cursor-pointer transition-colors" onClick={() => toggleChip(g, selectedGenres, setSelectedGenres, "genres")}>{g}</Badge>
                   ))}
                 </div>
               </div>
@@ -222,14 +217,7 @@ export default function ScheduleGenerator() {
                 <Label>Areas to Improve (select all that apply)</Label>
                 <div className="flex flex-wrap gap-2">
                   {WEAKNESSES.map((w) => (
-                    <Badge
-                      key={w}
-                      variant={selectedWeaknesses.includes(w) ? "default" : "outline"}
-                      className="cursor-pointer transition-colors"
-                      onClick={() => toggleChip(w, selectedWeaknesses, setSelectedWeaknesses, "weaknesses")}
-                    >
-                      {w}
-                    </Badge>
+                    <Badge key={w} variant={selectedWeaknesses.includes(w) ? "default" : "outline"} className="cursor-pointer transition-colors" onClick={() => toggleChip(w, selectedWeaknesses, setSelectedWeaknesses, "weaknesses")}>{w}</Badge>
                   ))}
                 </div>
               </div>
@@ -266,26 +254,125 @@ export default function ScheduleGenerator() {
 }
 
 function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () => void }) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [savingToCalendar, setSavingToCalendar] = useState(false);
+
+  const saveToCalendar = async () => {
+    if (!user) return;
+    setSavingToCalendar(true);
+    try {
+      const monday = nextMonday(new Date());
+      const scheduleName = `AI Plan — ${format(monday, "MMM d, yyyy")}`;
+
+      const rows: any[] = [];
+      for (const day of schedule.days) {
+        const dayOffset = DAY_MAP[day.day] ?? 0;
+        const date = addDays(monday, dayOffset);
+        for (const block of day.blocks) {
+          rows.push({
+            user_id: user.id,
+            schedule_name: scheduleName,
+            date: format(date, "yyyy-MM-dd"),
+            day_of_week: day.day,
+            activity: block.activity,
+            focus_area: block.focus,
+            duration_minutes: parseDurationMinutes(block.duration),
+            bpm_range: block.bpmRange || null,
+            tips: block.tips || null,
+          });
+        }
+      }
+
+      const { error } = await supabase.from("scheduled_practices").insert(rows);
+      if (error) throw error;
+      toast.success("Schedule saved to calendar!");
+      navigate("/calendar");
+    } catch (e: any) {
+      toast.error(e.message || "Failed to save schedule");
+    } finally {
+      setSavingToCalendar(false);
+    }
+  };
+
+  const exportPDF = () => {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      toast.error("Please allow pop-ups to export PDF");
+      return;
+    }
+
+    const html = `<!DOCTYPE html>
+<html><head><title>DrumLog Practice Schedule</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; margin: 40px; color: #1a1a2e; }
+  h1 { color: #e05c3a; margin-bottom: 4px; }
+  h2 { color: #e05c3a; margin-top: 28px; border-bottom: 2px solid #e05c3a; padding-bottom: 4px; }
+  .summary { color: #555; margin-bottom: 20px; }
+  .day-card { margin-bottom: 18px; break-inside: avoid; }
+  .block { background: #f8f8f8; padding: 10px 14px; border-radius: 6px; margin: 6px 0; display: flex; gap: 16px; }
+  .block-dur { min-width: 70px; font-weight: 600; color: #e05c3a; }
+  .block-info { flex: 1; }
+  .block-meta { font-size: 13px; color: #777; margin-top: 2px; }
+  .tip { font-style: italic; font-size: 12px; color: #888; }
+  ul { padding-left: 20px; }
+  li { margin-bottom: 4px; }
+  @media print { body { margin: 20px; } }
+</style></head><body>
+<h1>🥁 DrumLog Practice Schedule</h1>
+<p class="summary">${schedule.summary}</p>
+<p><strong>~${schedule.weeklyHours} hours/week</strong></p>
+${schedule.days.map((day) => `
+<div class="day-card">
+  <h2>${day.day}</h2>
+  ${day.blocks.map((b) => `
+  <div class="block">
+    <div class="block-dur">${b.duration}</div>
+    <div class="block-info">
+      <strong>${b.activity}</strong>
+      <div class="block-meta">${b.focus}${b.bpmRange ? ` · ${b.bpmRange} BPM` : ""}</div>
+      ${b.tips ? `<div class="tip">💡 ${b.tips}</div>` : ""}
+    </div>
+  </div>`).join("")}
+</div>`).join("")}
+${schedule.monthlyGoals?.length ? `<h2>Monthly Goals</h2><ul>${schedule.monthlyGoals.map((g) => `<li>${g}</li>`).join("")}</ul>` : ""}
+${schedule.tips?.length ? `<h2>Pro Tips</h2><ul>${schedule.tips.map((t) => `<li>${t}</li>`).join("")}</ul>` : ""}
+</body></html>`;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-3xl font-heading font-bold text-foreground flex items-center gap-2">
             <Calendar className="w-7 h-7 text-primary" /> Your Practice Plan
           </h1>
           <p className="text-muted-foreground mt-1">{schedule.summary}</p>
         </div>
-        <Button variant="outline" onClick={onReset}>Generate New</Button>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" onClick={exportPDF}>
+            <Download className="w-4 h-4 mr-2" /> Export PDF
+          </Button>
+          <Button onClick={saveToCalendar} disabled={savingToCalendar}>
+            {savingToCalendar ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CalendarPlus className="w-4 h-4 mr-2" />}
+            Save to Calendar
+          </Button>
+          <Button variant="outline" onClick={onReset}>Generate New</Button>
+        </div>
       </div>
 
-      {/* Weekly hours badge */}
       {schedule.weeklyHours && (
         <Badge variant="secondary" className="text-sm px-3 py-1">
           <Clock className="w-3.5 h-3.5 mr-1.5" /> ~{schedule.weeklyHours} hours/week
         </Badge>
       )}
 
-      {/* Days */}
       <div className="grid gap-4">
         {schedule.days?.map((day) => (
           <Card key={day.day}>
@@ -315,7 +402,6 @@ function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () =
         ))}
       </div>
 
-      {/* Monthly Goals */}
       {schedule.monthlyGoals?.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-lg">Monthly Goals</CardTitle></CardHeader>
@@ -323,8 +409,7 @@ function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () =
             <ul className="space-y-2">
               {schedule.monthlyGoals.map((g, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  {g}
+                  <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />{g}
                 </li>
               ))}
             </ul>
@@ -332,7 +417,6 @@ function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () =
         </Card>
       )}
 
-      {/* Tips */}
       {schedule.tips?.length > 0 && (
         <Card>
           <CardHeader><CardTitle className="text-lg">Pro Tips</CardTitle></CardHeader>
@@ -340,8 +424,7 @@ function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () =
             <ul className="space-y-2">
               {schedule.tips.map((t, i) => (
                 <li key={i} className="flex items-start gap-2 text-sm">
-                  <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                  {t}
+                  <Sparkles className="w-4 h-4 text-primary mt-0.5 shrink-0" />{t}
                 </li>
               ))}
             </ul>
