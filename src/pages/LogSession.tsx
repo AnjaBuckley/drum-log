@@ -18,6 +18,7 @@ export default function LogSession() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [showErrors, setShowErrors] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const [date, setDate] = useState(today);
