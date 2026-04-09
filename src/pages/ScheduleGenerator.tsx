@@ -147,7 +147,7 @@ export default function ScheduleGenerator() {
                   <SelectTrigger><SelectValue placeholder="Select your level" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Complete Beginner">Complete Beginner</SelectItem>
-                    <SelectItem value="Beginner">Beginner (< 1 year)</SelectItem>
+                    <SelectItem value="Beginner">{"Beginner (< 1 year)"}</SelectItem>
                     <SelectItem value="Intermediate">Intermediate (1-3 years)</SelectItem>
                     <SelectItem value="Advanced">Advanced (3-7 years)</SelectItem>
                     <SelectItem value="Professional">Professional (7+ years)</SelectItem>
