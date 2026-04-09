@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -8,24 +8,33 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import StarRating from "@/components/StarRating";
 import TagInput from "@/components/TagInput";
 import { toast } from "sonner";
 import { FOCUS_AREAS } from "@/lib/constants";
-import { Play } from "lucide-react";
+import { CalendarCheck } from "lucide-react";
 
 export default function LogSession() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
+  const scheduledId = searchParams.get("scheduled_id");
+  const prefillFocus = searchParams.get("focus") || "";
+  const prefillDuration = searchParams.get("duration") || "";
+  const prefillExercise = searchParams.get("exercise") || "";
+  const prefillBpm = searchParams.get("bpm") || "";
+  const prefillDate = searchParams.get("date") || "";
+
   const today = new Date().toISOString().split("T")[0];
-  const [date, setDate] = useState(today);
-  const [duration, setDuration] = useState("");
-  const [focusArea, setFocusArea] = useState("");
-  const [exerciseName, setExerciseName] = useState("");
-  const [bpmStart, setBpmStart] = useState("");
+  const [date, setDate] = useState(prefillDate || today);
+  const [duration, setDuration] = useState(prefillDuration);
+  const [focusArea, setFocusArea] = useState(prefillFocus);
+  const [exerciseName, setExerciseName] = useState(prefillExercise);
+  const [bpmStart, setBpmStart] = useState(prefillBpm);
   const [bpmEnd, setBpmEnd] = useState("");
   const [feelRating, setFeelRating] = useState(0);
   const [tags, setTags] = useState<string[]>([]);
@@ -36,14 +45,11 @@ export default function LogSession() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (missingFields) {
-      setShowErrors(true);
-      return;
-    }
+    if (missingFields) { setShowErrors(true); return; }
     if (!user) return;
     setLoading(true);
 
-    const { error } = await supabase.from("practice_sessions").insert({
+    const { data: session, error } = await supabase.from("practice_sessions").insert({
       user_id: user.id,
       date,
       duration_minutes: parseInt(duration),
@@ -55,15 +61,25 @@ export default function LogSession() {
       tags: tags.length > 0 ? tags : null,
       notes: notes || null,
       audio_url: audioUrl || null,
-    });
+    }).select("id").single();
+
+    if (error) {
+      setLoading(false);
+      toast.error("Failed to save session");
+      return;
+    }
+
+    // Mark scheduled practice as completed
+    if (scheduledId && session) {
+      await supabase
+        .from("scheduled_practices")
+        .update({ completed: true, logged_session_id: session.id })
+        .eq("id", scheduledId);
+    }
 
     setLoading(false);
-    if (error) {
-      toast.error("Failed to save session");
-    } else {
-      toast.success("Session logged!");
-      navigate("/sessions");
-    }
+    toast.success("Session logged!");
+    navigate(scheduledId ? "/calendar" : "/sessions");
   };
 
   const isValidAudio = audioUrl && /\.(mp3|wav|ogg|m4a|webm)(\?|$)/i.test(audioUrl);
@@ -71,6 +87,15 @@ export default function LogSession() {
   return (
     <div className="max-w-2xl mx-auto">
       <h1 className="text-3xl font-heading mb-6">Log Session</h1>
+
+      {scheduledId && (
+        <div className="mb-4">
+          <Badge variant="secondary" className="text-sm px-3 py-1.5">
+            <CalendarCheck className="w-4 h-4 mr-1.5" /> Logging from scheduled practice
+          </Badge>
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">New Practice Session</CardTitle>
@@ -93,9 +118,7 @@ export default function LogSession() {
             <div>
               <Label>Focus Area *</Label>
               <Select value={focusArea} onValueChange={setFocusArea}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select focus area" />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select focus area" /></SelectTrigger>
                 <SelectContent>
                   {FOCUS_AREAS.map((area) => (
                     <SelectItem key={area} value={area}>{area}</SelectItem>
@@ -123,9 +146,7 @@ export default function LogSession() {
 
             <div>
               <Label>Feel Rating</Label>
-              <div className="mt-1">
-                <StarRating value={feelRating} onChange={setFeelRating} />
-              </div>
+              <div className="mt-1"><StarRating value={feelRating} onChange={setFeelRating} /></div>
             </div>
 
             <div>
@@ -143,9 +164,7 @@ export default function LogSession() {
               <div className="flex gap-2 items-center">
                 <Input value={audioUrl} onChange={(e) => setAudioUrl(e.target.value)} placeholder="https://example.com/recording.mp3" className="flex-1" />
                 {isValidAudio && (
-                  <audio controls src={audioUrl} className="h-8 w-32">
-                    <track kind="captions" />
-                  </audio>
+                  <audio controls src={audioUrl} className="h-8 w-32"><track kind="captions" /></audio>
                 )}
               </div>
             </div>
