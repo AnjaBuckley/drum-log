@@ -150,7 +150,10 @@ export default function LogSession() {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading || !focusArea || !duration || !date}>
+            {showErrors && missingFields && (
+              <p className="text-destructive text-sm text-center">Please fill in all mandatory fields marked with *</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
               {loading ? "Saving..." : "Log Session"}
             </Button>
           </form>
