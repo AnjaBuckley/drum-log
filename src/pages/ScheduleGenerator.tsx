@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { jsPDF } from "jspdf";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -296,54 +297,174 @@ function ScheduleView({ schedule, onReset }: { schedule: Schedule; onReset: () =
   };
 
   const exportPDF = () => {
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      toast.error("Please allow pop-ups to export PDF");
-      return;
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 16;
+    const contentW = pageW - margin * 2;
+    let y = margin;
+
+    const accent = [224, 92, 58] as [number, number, number];
+    const dark = [26, 26, 46] as [number, number, number];
+    const mid = [100, 100, 120] as [number, number, number];
+    const lightBg = [248, 248, 250] as [number, number, number];
+
+    const ensureSpace = (needed: number) => {
+      if (y + needed > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    const wrappedText = (text: string, x: number, maxW: number, lineH: number): number => {
+      const lines = doc.splitTextToSize(text, maxW);
+      lines.forEach((line: string) => {
+        ensureSpace(lineH);
+        doc.text(line, x, y);
+        y += lineH;
+      });
+      return y;
+    };
+
+    // Header
+    doc.setFillColor(...accent);
+    doc.rect(0, 0, pageW, 28, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("DrumLog Practice Schedule", margin, 17);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`~${schedule.weeklyHours} hours/week`, pageW - margin, 17, { align: "right" });
+    y = 36;
+
+    // Summary
+    doc.setTextColor(...dark);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "italic");
+    wrappedText(schedule.summary, margin, contentW, 5);
+    y += 4;
+
+    // Days
+    for (const day of schedule.days) {
+      ensureSpace(14);
+
+      // Day heading
+      doc.setFillColor(...accent);
+      doc.roundedRect(margin, y, contentW, 8, 1.5, 1.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text(day.day, margin + 4, y + 5.5);
+      y += 11;
+
+      for (const block of day.blocks) {
+        const activityLines = doc.splitTextToSize(block.activity, contentW - 28);
+        const tipLines = block.tips ? doc.splitTextToSize(`Tip: ${block.tips}`, contentW - 28) : [];
+        const blockH = 4 + activityLines.length * 4.5 + 4 + (tipLines.length > 0 ? tipLines.length * 3.5 + 2 : 0) + 3;
+
+        ensureSpace(blockH + 2);
+
+        doc.setFillColor(...lightBg);
+        doc.roundedRect(margin, y, contentW, blockH, 1.5, 1.5, "F");
+
+        // Duration badge
+        doc.setFillColor(...accent);
+        doc.roundedRect(margin + 3, y + 3, 22, 5.5, 1, 1, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7.5);
+        doc.setFont("helvetica", "bold");
+        doc.text(block.duration, margin + 14, y + 7, { align: "center" });
+
+        // Activity
+        doc.setTextColor(...dark);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        let textY = y + 5;
+        activityLines.forEach((line: string) => {
+          doc.text(line, margin + 28, textY);
+          textY += 4.5;
+        });
+
+        // Meta: focus + BPM
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.setTextColor(...mid);
+        const meta = block.bpmRange ? `${block.focus} · ${block.bpmRange} BPM` : block.focus;
+        doc.text(meta, margin + 28, textY);
+        textY += 4;
+
+        // Tips
+        if (tipLines.length > 0) {
+          doc.setFontSize(7.5);
+          doc.setFont("helvetica", "italic");
+          tipLines.forEach((line: string) => {
+            doc.text(line, margin + 28, textY);
+            textY += 3.5;
+          });
+        }
+
+        y += blockH + 2;
+      }
+      y += 4;
     }
 
-    const html = `<!DOCTYPE html>
-<html><head><title>DrumLog Practice Schedule</title>
-<style>
-  body { font-family: 'Segoe UI', sans-serif; margin: 40px; color: #1a1a2e; }
-  h1 { color: #e05c3a; margin-bottom: 4px; }
-  h2 { color: #e05c3a; margin-top: 28px; border-bottom: 2px solid #e05c3a; padding-bottom: 4px; }
-  .summary { color: #555; margin-bottom: 20px; }
-  .day-card { margin-bottom: 18px; break-inside: avoid; }
-  .block { background: #f8f8f8; padding: 10px 14px; border-radius: 6px; margin: 6px 0; display: flex; gap: 16px; }
-  .block-dur { min-width: 70px; font-weight: 600; color: #e05c3a; }
-  .block-info { flex: 1; }
-  .block-meta { font-size: 13px; color: #777; margin-top: 2px; }
-  .tip { font-style: italic; font-size: 12px; color: #888; }
-  ul { padding-left: 20px; }
-  li { margin-bottom: 4px; }
-  @media print { body { margin: 20px; } }
-</style></head><body>
-<h1>🥁 DrumLog Practice Schedule</h1>
-<p class="summary">${schedule.summary}</p>
-<p><strong>~${schedule.weeklyHours} hours/week</strong></p>
-${schedule.days.map((day) => `
-<div class="day-card">
-  <h2>${day.day}</h2>
-  ${day.blocks.map((b) => `
-  <div class="block">
-    <div class="block-dur">${b.duration}</div>
-    <div class="block-info">
-      <strong>${b.activity}</strong>
-      <div class="block-meta">${b.focus}${b.bpmRange ? ` · ${b.bpmRange} BPM` : ""}</div>
-      ${b.tips ? `<div class="tip">💡 ${b.tips}</div>` : ""}
-    </div>
-  </div>`).join("")}
-</div>`).join("")}
-${schedule.monthlyGoals?.length ? `<h2>Monthly Goals</h2><ul>${schedule.monthlyGoals.map((g) => `<li>${g}</li>`).join("")}</ul>` : ""}
-${schedule.tips?.length ? `<h2>Pro Tips</h2><ul>${schedule.tips.map((t) => `<li>${t}</li>`).join("")}</ul>` : ""}
-</body></html>`;
+    // Monthly Goals
+    if (schedule.monthlyGoals?.length > 0) {
+      ensureSpace(14);
+      doc.setFillColor(...accent);
+      doc.roundedRect(margin, y, contentW, 8, 1.5, 1.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Monthly Goals", margin + 4, y + 5.5);
+      y += 12;
 
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      printWindow.print();
-    };
+      doc.setTextColor(...dark);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      for (const goal of schedule.monthlyGoals) {
+        ensureSpace(6);
+        doc.setFillColor(...accent);
+        doc.circle(margin + 3, y - 0.5, 1, "F");
+        wrappedText(goal, margin + 8, contentW - 8, 4.5);
+      }
+      y += 4;
+    }
+
+    // Pro Tips
+    if (schedule.tips?.length > 0) {
+      ensureSpace(14);
+      doc.setFillColor(...accent);
+      doc.roundedRect(margin, y, contentW, 8, 1.5, 1.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Pro Tips", margin + 4, y + 5.5);
+      y += 12;
+
+      doc.setTextColor(...dark);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      for (const tip of schedule.tips) {
+        ensureSpace(6);
+        doc.setFillColor(...accent);
+        doc.circle(margin + 3, y - 0.5, 1, "F");
+        wrappedText(tip, margin + 8, contentW - 8, 4.5);
+      }
+    }
+
+    // Footer on each page
+    const totalPages = doc.getNumberOfPages();
+    for (let p = 1; p <= totalPages; p++) {
+      doc.setPage(p);
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...mid);
+      doc.text(`Generated by DrumLog · Page ${p} of ${totalPages}`, pageW / 2, pageH - 6, { align: "center" });
+    }
+
+    doc.save("drumlog-schedule.pdf");
   };
 
   return (
